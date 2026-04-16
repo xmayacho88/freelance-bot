@@ -5,71 +5,49 @@ import re
 from datetime import datetime
 
 # ============================================
-# Telegram (берутся из секретов GitHub)
+# Telegram (из секретов GitHub)
 # ============================================
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 # ============================================
-# ВАШИ НАВЫКИ (отредактируйте под себя)
+# РАСШИРЕННЫЕ НАВЫКИ (почти всё)
 # ============================================
-    MY_SKILLS = [
-    # Программирование
-    "python", "javascript", "html", "css", "php", "java", "c#", "c++",
-    "react", "vue", "angular", "node.js", "django", "flask",
-    "wordpress", "tilda", "сайт", "лендинг", "верстка",
-    
-    # Дизайн
+MY_SKILLS = [
+    "python", "javascript", "html", "css", "php", "java",
     "дизайн", "логотип", "фигма", "photoshop", "illustrator",
-    "баннер", "визитка", "упаковка", "брендинг",
-    
-    # Контент
-    "копирайтинг", "текст", "статья", "пост", "контент",
-    "перевод", "английский", "переводчик",
-    
-    # Парсинг и боты
-    "парсинг", "бот", "telegram", "api", "скрапинг",
-    
-    # Видео и SMM
-    "видеомонтаж", "smm", "instagram", "tiktok", "рилс",
-    "капкат", "премьера", "after effects",
-    
-    # Общие (важно!)
-    "нужен", "помощь", "сделать", "разработка",
-    "создать", "написать", "сверстать"
-]
-    
-]
+    "копирайтинг", "текст", "статья", "перевод", "пост",
+    "парсинг", "бот", "telegram", "api", "сайт", "лендинг",
+    "видеомонтаж", "smm", "instagram", "рилс", "wordpress",
+    "нужен", "помощь", "сделать", "разработка", "создать"
 ]
 
 # ============================================
-# ФУНКЦИЯ ОТПРАВКИ В TELEGRAM
+# ОТПРАВКА В TELEGRAM
 # ============================================
 def send_tg(text):
     if not TOKEN or not CHAT_ID:
-        print("❌ Нет токенов Telegram")
+        print("❌ Нет токенов")
         return
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
         requests.post(url, json={"chat_id": CHAT_ID, "text": text[:4000], "disable_web_page_preview": True}, timeout=30)
-        print("✅ Отправлено в Telegram")
+        print("✅ Отправлено")
     except Exception as e:
-        print(f"❌ Ошибка отправки: {e}")
+        print(f"❌ Ошибка: {e}")
 
 # ============================================
-# ПАРСЕРЫ БИРЖ
+# ПАРСЕРЫ
 # ============================================
 
 def parse_kwork():
-    """Kwork.ru"""
     orders = []
     try:
-        print("🔍 Парсим Kwork...")
+        print("🔍 Kwork...")
         feed = feedparser.parse("https://kwork.ru/projects/rss")
-        for entry in feed.entries[:15]:
+        for entry in feed.entries[:20]:
             title = entry.title
-            if any(skill.lower() in title.lower() for skill in MY_SKILLS):
-                # Извлекаем цену
+            if any(s.lower() in title.lower() for s in MY_SKILLS):
                 price = "💰 Цена не указана"
                 if "₽" in title:
                     match = re.search(r'(\d+)\s*₽', title)
@@ -81,20 +59,19 @@ def parse_kwork():
                     "price": price,
                     "platform": "🔥 Kwork"
                 })
-        print(f"   ✅ Найдено: {len(orders)}")
+        print(f"   ✅ {len(orders)} заказов")
     except Exception as e:
-        print(f"   ❌ Ошибка Kwork: {e}")
+        print(f"   ❌ Ошибка: {e}")
     return orders
 
 def parse_freelancehunt():
-    """Freelancehunt.com"""
     orders = []
     try:
-        print("🔍 Парсим Freelancehunt...")
+        print("🔍 Freelancehunt...")
         feed = feedparser.parse("https://freelancehunt.com/rss/ru/projects.xml")
-        for entry in feed.entries[:15]:
+        for entry in feed.entries[:20]:
             title = entry.title
-            if any(skill.lower() in title.lower() for skill in MY_SKILLS):
+            if any(s.lower() in title.lower() for s in MY_SKILLS):
                 price = "💰 Цена не указана"
                 if "$" in title:
                     match = re.search(r'(\d+)\s*\$\s*', title)
@@ -106,86 +83,86 @@ def parse_freelancehunt():
                     "price": price,
                     "platform": "⚡ Freelancehunt"
                 })
-        print(f"   ✅ Найдено: {len(orders)}")
+        print(f"   ✅ {len(orders)} заказов")
     except Exception as e:
-        print(f"   ❌ Ошибка Freelancehunt: {e}")
+        print(f"   ❌ Ошибка: {e}")
     return orders
 
 def parse_habr():
-    """Habr Freelance"""
     orders = []
     try:
-        print("🔍 Парсим Habr Freelance...")
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        url = "https://freelance.habr.com/tasks"
-        response = requests.get(url, headers=headers, timeout=15)
-        if response.status_code == 200:
-            # Простая проверка (для RSS у Habr нет ленты)
-            orders.append({
-                "title": "Посмотрите свежие заказы на Habr",
-                "link": "https://freelance.habr.com/tasks",
-                "price": "💰 Смотрите на сайте",
-                "platform": "📘 Habr Freelance"
-            })
-        print(f"   ✅ Habr обработан")
+        print("🔍 Habr Freelance...")
+        orders.append({
+            "title": "Свежие заказы на Habr",
+            "link": "https://freelance.habr.com/tasks",
+            "price": "💰 Смотрите на сайте",
+            "platform": "📘 Habr Freelance"
+        })
+        print(f"   ✅ Добавлена ссылка на Habr")
     except Exception as e:
-        print(f"   ❌ Ошибка Habr: {e}")
+        print(f"   ❌ Ошибка: {e}")
     return orders
 
 def parse_weblancer():
-    """Weblancer.net"""
     orders = []
     try:
-        print("🔍 Парсим Weblancer...")
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        url = "https://www.weblancer.net/projects/"
-        response = requests.get(url, headers=headers, timeout=15)
-        if response.status_code == 200:
-            orders.append({
-                "title": "Свежие заказы на Weblancer",
-                "link": "https://www.weblancer.net/projects/",
-                "price": "💰 Смотрите на сайте",
-                "platform": "🌐 Weblancer"
-            })
-        print(f"   ✅ Weblancer обработан")
+        print("🔍 Weblancer...")
+        orders.append({
+            "title": "Свежие заказы на Weblancer",
+            "link": "https://www.weblancer.net/projects/",
+            "price": "💰 Смотрите на сайте",
+            "platform": "🌐 Weblancer"
+        })
+        print(f"   ✅ Добавлена ссылка на Weblancer")
     except Exception as e:
-        print(f"   ❌ Ошибка Weblancer: {e}")
+        print(f"   ❌ Ошибка: {e}")
     return orders
 
-# ============================================
-# ГЕНЕРАЦИЯ ИДЕЙ ДЛЯ КОНТЕНТА
-# ============================================
-def generate_content_idea():
-    ideas = [
-        "🎬 ИДЕЯ ДЛЯ РИЛС: Покажи, как ты находишь заказ за 5 минут",
-        "📝 ПОСТ ДЛЯ БЛОГА: 5 ошибок новичка на фрилансе",
-        "🎥 СЦЕНАРИЙ РИЛС: Чек-лист из 3 шагов для старта",
-        "📊 КОНТЕНТ-ПЛАН: Что публиковать каждый день фрилансеру",
-        "💡 ЛАЙФХАК: Как поднять цену на свои услуги",
-        "🔥 ТРЕНД: Самые востребованные навыки 2026"
-    ]
-    import random
-    return random.choice(ideas)
+def parse_fl():
+    orders = []
+    try:
+        print("🔍 Fl.ru...")
+        orders.append({
+            "title": "Свежие заказы на Fl.ru",
+            "link": "https://fl.ru/projects",
+            "price": "💰 Смотрите на сайте",
+            "platform": "📌 Fl.ru"
+        })
+        print(f"   ✅ Добавлена ссылка на Fl.ru")
+    except Exception as e:
+        print(f"   ❌ Ошибка: {e}")
+    return orders
 
 # ============================================
 # ГЛАВНАЯ ФУНКЦИЯ
 # ============================================
+
 def main():
     print("=" * 50)
-    print(f"🤖 ЗАПУСК ПАРСЕРА ФРИЛАНС-БИРЖ")
+    print(f"🤖 ЗАПУСК ПАРСЕРА")
     print(f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
     print("=" * 50)
     
-    # Собираем заказы со всех бирж
+    # Собираем все заказы
     all_orders = []
     all_orders.extend(parse_kwork())
     all_orders.extend(parse_freelancehunt())
     all_orders.extend(parse_habr())
     all_orders.extend(parse_weblancer())
+    all_orders.extend(parse_fl())
+    
+    # Удаляем дубликаты по ссылке
+    seen = set()
+    unique_orders = []
+    for order in all_orders:
+        if order['link'] not in seen:
+            seen.add(order['link'])
+            unique_orders.append(order)
+    
+    all_orders = unique_orders
     
     # Формируем отчёт
     if all_orders:
-        # Группируем по платформам
         grouped = {}
         for order in all_orders:
             plat = order['platform']
@@ -193,34 +170,24 @@ def main():
                 grouped[plat] = []
             grouped[plat].append(order)
         
-        # Создаём сообщение
         msg = f"<b>🔍 НАЙДЕНО ЗАКАЗОВ: {len(all_orders)}</b>\n"
         msg += f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
         msg += "─" * 30 + "\n\n"
         
         for platform, orders in grouped.items():
             msg += f"<b>{platform}</b> ({len(orders)})\n"
-            for order in orders[:5]:
+            for order in orders[:7]:
                 msg += f"📌 <b>{order['title']}</b>\n"
                 msg += f"{order['price']}\n"
                 msg += f"🔗 <a href='{order['link']}'>Смотреть заказ</a>\n\n"
         
-        # Добавляем идею для контента
-        msg += "─" * 30 + "\n"
-        msg += f"<b>💡 {generate_content_idea()}</b>\n\n"
-        msg += "<i>🤖 Отправлено автоматически из GitHub Actions</i>"
-        
         send_tg(msg)
     else:
-        msg = f"😴 <b>Новых подходящих заказов нет</b>\n\n"
-        msg += f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-        msg += f"🎯 Ваши навыки: {', '.join(MY_SKILLS[:5])}...\n\n"
-        msg += f"💡 {generate_content_idea()}\n\n"
-        msg += "<i>Попробуйте расширить список навыков в настройках</i>"
+        msg = f"😴 <b>Заказов не найдено</b>\n\n📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n\n💡 Проверьте навыки в файле freelance.py"
         send_tg(msg)
     
     print("=" * 50)
-    print("✅ Парсер завершил работу")
+    print("✅ ГОТОВО")
     print("=" * 50)
 
 if __name__ == "__main__":
