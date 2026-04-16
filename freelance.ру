@@ -1,28 +1,22 @@
-import requests, feedparser, os
-from datetime import datetime
+import os
+import requests
+
+print("1. Файл запущен")
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
-SKILLS = ["python", "дизайн", "копирайтинг"]
 
-def send_tg(text):
-    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": text[:4000]})
+print(f"2. Токен: {'есть' if TOKEN else 'нет'}")
+print(f"3. Chat ID: {'есть' if CHAT_ID else 'нет'}")
 
-def get_orders():
-    orders = []
+if TOKEN and CHAT_ID:
     try:
-        feed = feedparser.parse("https://kwork.ru/projects/rss")
-        for e in feed.entries[:10]:
-            if any(s in e.title.lower() for s in SKILLS):
-                orders.append(f"Kwork: {e.title[:60]}\n{e.link}")
-    except: pass
-    try:
-        feed = feedparser.parse("https://freelancehunt.com/rss/ru/projects.xml")
-        for e in feed.entries[:10]:
-            if any(s in e.title.lower() for s in SKILLS):
-                orders.append(f"Freelancehunt: {e.title[:60]}\n{e.link}")
-    except: pass
-    return orders
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+        result = requests.post(url, json={"chat_id": CHAT_ID, "text": "✅ Тест от GitHub Actions"})
+        print(f"4. Статус ответа: {result.status_code}")
+    except Exception as e:
+        print(f"4. Ошибка: {e}")
+else:
+    print("4. Не могу отправить - нет токенов")
 
-orders = get_orders()
-send_tg(f"🔍 Найдено: {len(orders)}\n\n" + "\n\n".join(orders) if orders else "😴 Заказов нет")
+print("5. Скрипт закончил работу")
