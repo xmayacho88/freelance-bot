@@ -1,0 +1,28 @@
+import requests, feedparser, os
+from datetime import datetime
+
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+SKILLS = ["python", "дизайн", "копирайтинг"]
+
+def send_tg(text):
+    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": text[:4000]})
+
+def get_orders():
+    orders = []
+    try:
+        feed = feedparser.parse("https://kwork.ru/projects/rss")
+        for e in feed.entries[:10]:
+            if any(s in e.title.lower() for s in SKILLS):
+                orders.append(f"Kwork: {e.title[:60]}\n{e.link}")
+    except: pass
+    try:
+        feed = feedparser.parse("https://freelancehunt.com/rss/ru/projects.xml")
+        for e in feed.entries[:10]:
+            if any(s in e.title.lower() for s in SKILLS):
+                orders.append(f"Freelancehunt: {e.title[:60]}\n{e.link}")
+    except: pass
+    return orders
+
+orders = get_orders()
+send_tg(f"🔍 Найдено: {len(orders)}\n\n" + "\n\n".join(orders) if orders else "😴 Заказов нет")
