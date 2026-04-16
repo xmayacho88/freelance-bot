@@ -1,8 +1,8 @@
 import requests
-import feedparser
-import os
 import re
+import os
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 # ============================================
 # Telegram (из секретов GitHub)
@@ -11,68 +11,18 @@ TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 
 # ============================================
-# ВАШИ НАВЫКИ (расширенные под всё, что вы делаете)
+# НАСТРОЙКИ
 # ============================================
+MIN_PRICE = 2000  # минимальная цена в рублях
+
+# Ваши навыки (для фильтрации)
 MY_SKILLS = [
-    # Дизайн
-    "дизайн", "логотип", "фигма", "photoshop", "illustrator", "coreldraw",
-    "баннер", "визитка", "упаковка", "брендинг", "айдентика",
-    "презентация", "инфографика", "полиграфия", "веб-дизайн",
-    "интерфейс", "ui", "ux", "адаптив", "мобильный дизайн",
-    
-    # Кодинг / Разработка
-    "python", "javascript", "html", "css", "php", "java", "c#", "c++",
-    "react", "vue", "angular", "node.js", "django", "flask", "fastapi",
-    "wordpress", "tilda", "сайт", "лендинг", "верстка", "интернет-магазин",
-    "телеграм бот", "бот", "api", "парсинг", "скрапинг", "автоматизация",
-    "backend", "frontend", "fullstack", "база данных", "sql",
-    
-    # Анализ / Маркетинг
-    "анализ", "аналитика", "исследование", "маркетинг", "seo", "smm",
-    "реклама", "таргет", "яндекс директ", "google ads", "контекст",
-    "юзабилити", "аудит", "метрика", "аналитика данных",
-    
-    # Маркетплейсы (WB, Ozon)
-    "wb", "wildberries", "озон", "ozon", "маркетплейс", "карточка товара",
-    "инфографика wb", "сео wb", "продвижение wb", "ozon карточка",
-    
-    # Общее
-    "нужен", "помощь", "сделать", "разработка", "создать", "написать",
-    "сверстать", "нарисовать", "отрисовать", "спроектировать"
+    "дизайн", "логотип", "фигма", "photoshop", "illustrator",
+    "python", "javascript", "html", "css", "сайт", "лендинг",
+    "парсинг", "бот", "telegram", "api", "wordpress",
+    "wb", "wildberries", "озон", "карточка", "инфографика",
+    "анализ", "аналитика", "копирайтинг", "текст"
 ]
-
-# ============================================
-# ФИЛЬТР ПО ЦЕНЕ (от 2000 рублей)
-# ============================================
-MIN_PRICE = 2000
-
-def check_price(text):
-    """Проверяет, что цена >= 2000 рублей"""
-    # Ищем цифры
-    numbers = re.findall(r'(\d+)\s*(?:₽|руб|рублей|р\.|р)', text, re.IGNORECASE)
-    for num_str in numbers:
-        try:
-            price = int(num_str)
-            if price >= MIN_PRICE:
-                return True, price
-        except:
-            pass
-    
-    # Ищем доллары (примерно 2000 руб = 20-25$)
-    dollars = re.findall(r'(\d+)\s*\$\s*', text, re.IGNORECASE)
-    for num_str in dollars:
-        try:
-            price_usd = int(num_str)
-            if price_usd >= 20:  # ~2000 рублей
-                return True, price_usd
-        except:
-            pass
-    
-    # Если цена не указана — показываем
-    if "цена" not in text.lower() and "₽" not in text and "$" not in text:
-        return True, None
-    
-    return False, None
 
 # ============================================
 # ОТПРАВКА В TELEGRAM
@@ -83,134 +33,177 @@ def send_tg(text):
         return
     try:
         url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        requests.post(url, json={"chat_id": CHAT_ID, "text": text[:4096], "parse_mode": "HTML", "disable_web_page_preview": False}, timeout=30)
-        print("✅ Отправлено в Telegram")
+        requests.post(url, json={"chat_id": CHAT_ID, "text": text[:4000], "parse_mode": "HTML", "disable_web_page_preview": False}, timeout=30)
+        print("✅ Отправлено")
     except Exception as e:
-        print(f"❌ Ошибка отправки: {e}")
+        print(f"❌ Ошибка: {e}")
 
 # ============================================
-# ПАРСЕРЫ (с прямой ссылкой на заказ)
+# ПАРСЕР KWORK (реальный парсинг HTML)
 # ============================================
-
 def parse_kwork():
     orders = []
     try:
-        print("🔍 Kwork...")
-        feed = feedparser.parse("https://kwork.ru/projects/rss")
-        for entry in feed.entries[:50]:
-            title = entry.title
-            description = entry.description if hasattr(entry, 'description') else ""
-            full_text = title + " " + description
-            
-            # Проверка навыков
-            if not any(s.lower() in full_text.lower() for s in MY_SKILLS):
+        print("🔍 Парсим Kwork (реальный парсинг)...")
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        url = "https://kwork.ru/projects"
+        response = requests.get(url, headers=headers, timeout=30)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Ищем все карточки проектов
+        projects = soup.select('.project-card, .cards-list-item, [class*="project"]')
+        
+        for project in projects[:30]:
+            try:
+                # Название
+                title_elem = project.select_one('.project-card__title, .card-title, h3, a')
+                title = title_elem.text.strip() if title_elem else ""
+                
+                # Ссылка
+                link_elem = project.select_one('a')
+                if link_elem and link_elem.get('href'):
+                    link = "https://kwork.ru" + link_elem.get('href')
+                else:
+                    continue
+                
+                # Цена
+                price_text = project.text
+                price_match = re.search(r'(\d+)\s*₽', price_text)
+                price = int(price_match.group(1)) if price_match else 0
+                
+                # Проверка цены
+                if price < MIN_PRICE and price > 0:
+                    continue
+                
+                # Проверка навыков
+                if not any(skill.lower() in title.lower() or skill.lower() in price_text.lower() for skill in MY_SKILLS):
+                    continue
+                
+                price_str = f"💰 {price} ₽" if price > 0 else "💰 Цена не указана"
+                
+                orders.append({
+                    "title": title[:100],
+                    "link": link,
+                    "price": price_str,
+                    "platform": "🔥 Kwork"
+                })
+            except:
                 continue
-            
-            # Проверка цены
-            price_ok, price_val = check_price(full_text)
-            if not price_ok:
-                continue
-            
-            price_str = f"💰 {price_val} ₽" if price_val else "💰 Цена не указана (возможно от 2000₽)"
-            
-            # Прямая ссылка на заказ
-            order_id = entry.link.split('/')[-1]
-            direct_link = entry.link
-            
-            orders.append({
-                "title": title[:100],
-                "link": direct_link,
-                "price": price_str,
-                "platform": "🔥 Kwork"
-            })
-        print(f"   ✅ {len(orders)} заказов от {MIN_PRICE}₽")
+        
+        print(f"   ✅ Найдено: {len(orders)}")
     except Exception as e:
-        print(f"   ❌ Ошибка: {e}")
+        print(f"   ❌ Ошибка Kwork: {e}")
     return orders
 
+# ============================================
+# ПАРСЕР FREELANCEHUNT
+# ============================================
 def parse_freelancehunt():
     orders = []
     try:
-        print("🔍 Freelancehunt...")
-        feed = feedparser.parse("https://freelancehunt.com/rss/ru/projects.xml")
-        for entry in feed.entries[:50]:
-            title = entry.title
-            description = entry.description if hasattr(entry, 'description') else ""
-            full_text = title + " " + description
-            
-            if not any(s.lower() in full_text.lower() for s in MY_SKILLS):
+        print("🔍 Парсим Freelancehunt...")
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        url = "https://freelancehunt.com/projects"
+        response = requests.get(url, headers=headers, timeout=30)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        projects = soup.select('.project, .project-item, [class*="project"]')
+        
+        for project in projects[:30]:
+            try:
+                title_elem = project.select_one('.project-title, .title, a')
+                title = title_elem.text.strip() if title_elem else ""
+                
+                link_elem = project.select_one('a')
+                if link_elem and link_elem.get('href'):
+                    link = "https://freelancehunt.com" + link_elem.get('href')
+                else:
+                    continue
+                
+                price_text = project.text
+                price_match = re.search(r'(\d+)\s*\$\s*', price_text)
+                price_usd = int(price_match.group(1)) if price_match else 0
+                price_rub = price_usd * 90
+                
+                if price_rub < MIN_PRICE and price_rub > 0:
+                    continue
+                
+                if not any(skill.lower() in title.lower() or skill.lower() in price_text.lower() for skill in MY_SKILLS):
+                    continue
+                
+                price_str = f"💰 {price_usd}$ (~{price_rub} ₽)" if price_usd > 0 else "💰 Цена не указана"
+                
+                orders.append({
+                    "title": title[:100],
+                    "link": link,
+                    "price": price_str,
+                    "platform": "⚡ Freelancehunt"
+                })
+            except:
                 continue
-            
-            price_ok, price_val = check_price(full_text)
-            if not price_ok:
-                continue
-            
-            price_str = f"💰 {price_val}$" if price_val else "💰 Цена не указана"
-            
-            orders.append({
-                "title": title[:100],
-                "link": entry.link,
-                "price": price_str,
-                "platform": "⚡ Freelancehunt"
-            })
-        print(f"   ✅ {len(orders)} заказов")
+        
+        print(f"   ✅ Найдено: {len(orders)}")
     except Exception as e:
-        print(f"   ❌ Ошибка: {e}")
+        print(f"   ❌ Ошибка Freelancehunt: {e}")
     return orders
 
+# ============================================
+# ПАРСЕР HABR
+# ============================================
 def parse_habr():
     orders = []
     try:
-        print("🔍 Habr Freelance...")
-        # У Habr нет RSS, поэтому даём ссылку с фильтром
-        orders.append({
-            "title": "Перейти на Habr Freelance (нужна ручная проверка цены)",
-            "link": "https://freelance.habr.com/tasks",
-            "price": "💰 Проверьте цену на сайте",
-            "platform": "📘 Habr Freelance"
-        })
-        print(f"   ✅ Добавлена ссылка")
+        print("🔍 Парсим Habr Freelance...")
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        url = "https://freelance.habr.com/tasks"
+        response = requests.get(url, headers=headers, timeout=30)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        tasks = soup.select('.task, .tasks-list-item, [class*="task"]')
+        
+        for task in tasks[:30]:
+            try:
+                title_elem = task.select_one('.task__title, a')
+                title = title_elem.text.strip() if title_elem else ""
+                
+                link_elem = task.select_one('a')
+                if link_elem and link_elem.get('href'):
+                    link = "https://freelance.habr.com" + link_elem.get('href')
+                else:
+                    continue
+                
+                price_text = task.text
+                price_match = re.search(r'(\d+)\s*₽', price_text)
+                price = int(price_match.group(1)) if price_match else 0
+                
+                if price < MIN_PRICE and price > 0:
+                    continue
+                
+                if not any(skill.lower() in title.lower() or skill.lower() in price_text.lower() for skill in MY_SKILLS):
+                    continue
+                
+                price_str = f"💰 {price} ₽" if price > 0 else "💰 Цена не указана"
+                
+                orders.append({
+                    "title": title[:100],
+                    "link": link,
+                    "price": price_str,
+                    "platform": "📘 Habr Freelance"
+                })
+            except:
+                continue
+        
+        print(f"   ✅ Найдено: {len(orders)}")
     except Exception as e:
-        print(f"   ❌ Ошибка: {e}")
-    return orders
-
-def parse_weblancer():
-    orders = []
-    try:
-        print("🔍 Weblancer...")
-        orders.append({
-            "title": "Перейти на Weblancer (нужна ручная проверка цены)",
-            "link": "https://www.weblancer.net/projects/",
-            "price": "💰 Проверьте цену на сайте",
-            "platform": "🌐 Weblancer"
-        })
-        print(f"   ✅ Добавлена ссылка")
-    except Exception as e:
-        print(f"   ❌ Ошибка: {e}")
-    return orders
-
-def parse_fl():
-    orders = []
-    try:
-        print("🔍 Fl.ru...")
-        orders.append({
-            "title": "Перейти на Fl.ru (нужна ручная проверка цены)",
-            "link": "https://fl.ru/projects",
-            "price": "💰 Проверьте цену на сайте",
-            "platform": "📌 Fl.ru"
-        })
-        print(f"   ✅ Добавлена ссылка")
-    except Exception as e:
-        print(f"   ❌ Ошибка: {e}")
+        print(f"   ❌ Ошибка Habr: {e}")
     return orders
 
 # ============================================
 # ГЛАВНАЯ ФУНКЦИЯ
 # ============================================
-
 def main():
     print("=" * 50)
-    print(f"🤖 ЗАПУСК ПАРСЕРА")
+    print(f"🤖 ЗАПУСК ПАРСЕРА (реальные ссылки)")
     print(f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
     print(f"💰 Мин. цена: {MIN_PRICE} ₽")
     print("=" * 50)
@@ -219,8 +212,6 @@ def main():
     all_orders.extend(parse_kwork())
     all_orders.extend(parse_freelancehunt())
     all_orders.extend(parse_habr())
-    all_orders.extend(parse_weblancer())
-    all_orders.extend(parse_fl())
     
     # Удаляем дубликаты
     seen = set()
@@ -232,24 +223,16 @@ def main():
     all_orders = unique_orders
     
     if all_orders:
-        grouped = {}
-        for order in all_orders:
-            plat = order['platform']
-            if plat not in grouped:
-                grouped[plat] = []
-            grouped[plat].append(order)
-        
         msg = f"<b>🔍 НАЙДЕНО ЗАКАЗОВ: {len(all_orders)}</b>\n"
-        msg += f"💰 Мин. цена: {MIN_PRICE} ₽\n"
+        msg += f"💰 От {MIN_PRICE} ₽\n"
         msg += f"📅 {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
         msg += "─" * 30 + "\n\n"
         
-        for platform, orders in grouped.items():
-            msg += f"<b>{platform}</b> ({len(orders)})\n"
-            for order in orders[:10]:
-                msg += f"📌 <b>{order['title']}</b>\n"
-                msg += f"{order['price']}\n"
-                msg += f"🔗 <a href='{order['link']}'>Прямая ссылка на заказ</a>\n\n"
+        for order in all_orders[:15]:
+            msg += f"<b>{order['platform']}</b>\n"
+            msg += f"📌 {order['title']}\n"
+            msg += f"{order['price']}\n"
+            msg += f"🔗 <a href='{order['link']}'>ПРЯМАЯ ССЫЛКА НА ЗАКАЗ</a>\n\n"
         
         send_tg(msg)
     else:
